@@ -85,24 +85,14 @@ class TaskManagerAgent:
         return task_id
     
     def play_reminder_sound(self):
-        """Play sound notification for reminders using online audio"""
+        """Play sound notification for reminders"""
         try:
-            # Use online sound URL that works in browsers
-            sound_urls = [
-                "https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3",  # Bell sound
-                "https://assets.mixkit.co/active_storage/sfx/250/250-preview.mp3",  # Alert sound
-                "https://assets.mixkit.co/active_storage/sfx/247/247-preview.mp3",  # Notification sound
-            ]
+            # Store sound trigger in session state
+            if 'play_sound' not in st.session_state:
+                st.session_state.play_sound = False
             
-            # Play the first sound
-            audio_html = f"""
-            <audio autoplay>
-            <source src="{sound_urls[0]}" type="audio/mp3">
-            Your browser does not support the audio element.
-            </audio>
-            """
-            st.components.v1.html(audio_html, height=0)
-            print("🔊 Playing reminder sound...")
+            st.session_state.play_sound = True
+            print("🔊 Sound trigger set")
             
         except Exception as e:
             print(f"Could not play sound: {e}")
@@ -260,6 +250,26 @@ class TaskManagerAgent:
                 print(f"Error in reminder worker: {e}")
                 time.sleep(30)
 
+def play_sound_component():
+    """Component to play sound when triggered"""
+    if st.session_state.get('play_sound', False):
+        # Use online sound URL that works in browsers
+        sound_url = "https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3"
+        
+        audio_html = f"""
+        <audio autoplay>
+        <source src="{sound_url}" type="audio/mp3">
+        Your browser does not support the audio element.
+        </audio>
+        <script>
+            console.log("Playing reminder sound...");
+        </script>
+        """
+        st.components.v1.html(audio_html, height=0)
+        
+        # Reset the sound trigger
+        st.session_state.play_sound = False
+
 def main():
     st.set_page_config(
         page_title="Task Manager Agent",
@@ -274,7 +284,7 @@ def main():
     **Features:**
     - 🔔 Auto-reminders 30 minutes before due time
     - ⏰ Manual reminders anytime
-    - 🔊 Sound notifications (using online audio)
+    - 🔊 Sound notifications (click buttons to test)
     - ✅ Mark tasks as done to stop reminders
     """)
     
@@ -283,6 +293,13 @@ def main():
         st.session_state.task_manager = TaskManagerAgent()
     
     task_manager = st.session_state.task_manager
+    
+    # Initialize sound trigger
+    if 'play_sound' not in st.session_state:
+        st.session_state.play_sound = False
+    
+    # Play sound component (must be at the top level)
+    play_sound_component()
     
     # Sidebar
     with st.sidebar:
@@ -362,7 +379,8 @@ def main():
         # Test sound button
         if st.button("🔊 Test Sound", use_container_width=True):
             task_manager.play_reminder_sound()
-            st.success("Sound test completed! You should hear a notification sound.")
+            st.success("Sound test triggered! You should hear a notification sound.")
+            st.rerun()
         
         # Show statistics
         st.markdown("---")
@@ -453,6 +471,7 @@ def main():
                         
                         if st.button("🔔 Remind Now", key=f"remind_{task['id']}", use_container_width=True):
                             task_manager.send_manual_reminder_now(task['id'])
+                            st.success("Reminder sent with sound!")
                             st.rerun()
                         
                         if st.button("🗑️ Delete", key=f"delete_{task['id']}", use_container_width=True):
