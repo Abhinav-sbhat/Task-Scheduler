@@ -6,10 +6,7 @@ import threading
 from datetime import datetime, timedelta
 from typing import List, Dict
 import os
-import platform
-# Only import winsound if running on Windows
-if platform.system() == "Windows":
-    import winsound
+
 class TaskManagerAgent:
     def __init__(self):
         self.tasks_file = "tasks.json"
@@ -88,16 +85,25 @@ class TaskManagerAgent:
         return task_id
     
     def play_reminder_sound(self):
-        """Play sound notification for reminders"""
+        """Play sound notification for reminders using online audio"""
         try:
-            if platform.system() == "Windows":
-                # Play alert sound (frequency, duration)
-                winsound.Beep(1000, 1000)  # 1000Hz for 1 second
-                time.sleep(0.5)
-                winsound.Beep(1000, 1000)  # Second beep
-            else:
-                # For Mac/Linux - system beep
-                print("\a")  # System bell
+            # Use online sound URL that works in browsers
+            sound_urls = [
+                "https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3",  # Bell sound
+                "https://assets.mixkit.co/active_storage/sfx/250/250-preview.mp3",  # Alert sound
+                "https://assets.mixkit.co/active_storage/sfx/247/247-preview.mp3",  # Notification sound
+            ]
+            
+            # Play the first sound
+            audio_html = f"""
+            <audio autoplay>
+            <source src="{sound_urls[0]}" type="audio/mp3">
+            Your browser does not support the audio element.
+            </audio>
+            """
+            st.components.v1.html(audio_html, height=0)
+            print("🔊 Playing reminder sound...")
+            
         except Exception as e:
             print(f"Could not play sound: {e}")
     
@@ -261,52 +267,39 @@ def main():
         layout="wide"
     )
     
-    st.title("🤖 Advanced Task Manager Agent")
+    st.title("🤖 Task Manager Agent")
     st.markdown("""
-    ### 🎯 Smart Task Management with Sound Reminders!
+    ### Smart Task Management with Sound Reminders!
     
     **Features:**
-    - 🔔 **Auto-reminders** 30 minutes before due time
-    - ⏰ **Manual reminders** at custom times
-    - 🔊 **Sound notifications** for all reminders
-    - 🎛️ **Instant manual reminders** anytime
-    - ⏱️ **Flexible due times** (as little as 1 minute!)
+    - 🔔 Auto-reminders 30 minutes before due time
+    - ⏰ Manual reminders anytime
+    - 🔊 Sound notifications (using online audio)
+    - ✅ Mark tasks as done to stop reminders
     """)
     
     # Initialize task manager
     if 'task_manager' not in st.session_state:
         st.session_state.task_manager = TaskManagerAgent()
-        st.session_state.task_created = False
     
     task_manager = st.session_state.task_manager
     
-    # Debug info
-    if st.sidebar.checkbox("Show Debug Info", value=False):
-        st.sidebar.write(f"Total tasks: {len(task_manager.tasks)}")
-        st.sidebar.write(f"Pending tasks: {len(task_manager.get_pending_tasks())}")
-        st.sidebar.write(f"Tasks file exists: {os.path.exists(task_manager.tasks_file)}")
-    
-    # Sidebar for task creation and controls
+    # Sidebar
     with st.sidebar:
         st.header("➕ Create New Task")
         
-        # Simple task creation form
         task_title = st.text_input("Task Title*", placeholder="What needs to be done?")
         task_description = st.text_area("Description", placeholder="Add details...")
         
-        # Date and time inputs
         col1, col2 = st.columns(2)
         with col1:
             task_due_date = st.date_input("Due Date*", value=datetime.now().date())
         with col2:
-            # Set default time to 30 minutes from now
             default_time = (datetime.now() + timedelta(minutes=30)).time()
             task_due_time = st.time_input("Due Time*", value=default_time)
         
-        # Combine date and time
         task_due_datetime = datetime.combine(task_due_date, task_due_time)
         
-        # Priority and category
         col3, col4 = st.columns(2)
         with col3:
             task_priority = st.selectbox("Priority", ["Low", "Medium", "High", "Urgent"])
@@ -337,14 +330,12 @@ def main():
                             category=task_category,
                             manual_reminder_minutes=manual_minutes if manual_reminder else 0
                         )
-                        st.session_state.task_created = True
                         st.success(f"✅ Task '{task_title}' created successfully!")
                         
                         if manual_reminder:
                             reminder_time = task_due_datetime - timedelta(minutes=manual_minutes)
                             st.info(f"🔔 Manual reminder set for: {reminder_time.strftime('%H:%M')}")
                         
-                        # Clear form
                         st.rerun()
                         
                     except Exception as e:
@@ -371,7 +362,7 @@ def main():
         # Test sound button
         if st.button("🔊 Test Sound", use_container_width=True):
             task_manager.play_reminder_sound()
-            st.success("Sound test completed!")
+            st.success("Sound test completed! You should hear a notification sound.")
         
         # Show statistics
         st.markdown("---")
@@ -405,7 +396,6 @@ def main():
         
         if not pending_tasks:
             st.info("🎉 No pending tasks! Create a new task to get started.")
-            st.image("https://cdn-icons-png.flaticon.com/512/190/190411.png", width=100)
         else:
             # Sort by due date
             pending_tasks.sort(key=lambda x: x['due_date'])
@@ -525,7 +515,7 @@ def main():
             if st.button("🔊 Send Reminder Now", type="primary", use_container_width=True):
                 task_id = task_options[selected_task]
                 task_manager.send_manual_reminder_now(task_id)
-                st.success("Reminder sent!")
+                st.success("Reminder sent with sound!")
                 st.rerun()
         else:
             st.info("No pending tasks for reminders")
